@@ -1,5 +1,5 @@
 # IDE
-.vscode
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -139,3 +139,4 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+.vscode/launch.json
