@@ -11,9 +11,12 @@ class ImageProcessor():
         if (image is None): raise Exception("Image not Found")
 
         ret, image_binary = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+        width,height = np.shape(image)
 
         # Private Variables
         self._image = image
+        self._width = width
+        self._height = height
         self._binary_image = image_binary
         self._modified_image = image_binary
 
@@ -52,6 +55,32 @@ class ImageProcessor():
         ax6.plot(self._calculate_histogram(self._modified_image))
 
         plt.show()
+
+    def segmentate(self):
+        mask = np.zeros((self._width, self._height), dtype=np.uint8)
+        groups = []
+        for i in range(0, self._width):
+            for j in range(0, self._height):
+                new_group = self._expand_neigbhood(i, j, mask)
+                if new_group is not None: groups.append(new_group)
+
+        print (groups)
+    
+
+    def _expand_neigbhood(self, x, y, mask, group=[]):
+        if x > 0 and x < self._width:
+            if y > 0 and y < self._height:
+                is_open = mask[x, y] != 0
+                mask[x, y] = 1
+                if is_open:
+                    if self._modified_image[x, y] == 0:
+                        return (x, y),
+                        
+
+
+
+
+
 
     def _morf_image(self, erode, kernel):
         kernel_w,kernel_h = np.shape(kernel)

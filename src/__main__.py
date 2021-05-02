@@ -12,6 +12,7 @@ def main():
 
     processor = ImageProcessor(image, 175)
     processor.erode_image(kernel)
+    processor.segmentate()
     processor.plot_image()
 
 if __name__ == "__main__":
