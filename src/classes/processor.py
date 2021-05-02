@@ -2,7 +2,7 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
-from math import ceil
+from math import ceil, floor
 
 
 class ImageProcessor():
@@ -56,108 +56,83 @@ class ImageProcessor():
 
         plt.show()
 
-    def segmentate(self):
+    def segmentate(self, kernel):
         mask = np.zeros((self._width, self._height), dtype=np.uint8)
         groups = []
-        for i in range(0, self._width):
-            for j in range(0, self._height):
-                new_group = self._expand_neigbhood(i, j, mask)
-                if new_group is not None: groups.append(new_group)
+        # for i in range(0, self._width):
+        #     for j in range(0, self._height):
+        #         neigbhood = self._get_neigbhood(i, j, mask)
 
         print (groups)
-    
-
-    def _expand_neigbhood(self, x, y, mask, group=[]):
-        if x > 0 and x < self._width:
-            if y > 0 and y < self._height:
-                is_open = mask[x, y] != 0
-                mask[x, y] = 1
-                if is_open:
-                    if self._modified_image[x, y] == 0:
-                        return (x, y),
                         
-
-
-
-
-
-
     def _morf_image(self, erode, kernel):
         kernel_w,kernel_h = np.shape(kernel)
+        kernel_count = np.count_nonzero(kernel)
 
         # Validating Kernel
-        if kernel_w % 2 == 0: raise Exception("Invalid Kernel Size: width can't be multiple of 2")
-        if kernel_h % 2 == 0: raise Exception("Invalid Kernel Size: height can't be multiple of 2")
-        if kernel_w != kernel_h: raise Exception("Invalid Kernel Size: not a square matrix")
+        if kernel_w % 2 == 0: 
+            raise Exception("Invalid Kernel Size: width can't be multiple of 2")
+        if kernel_h % 2 == 0: 
+            raise Exception("Invalid Kernel Size: height can't be multiple of 2")
+        if kernel_w != kernel_h: 
+            raise Exception("Invalid Kernel Size: not a square matrix")
 
-        width,height = np.shape(self._binary_image)
+        imgbuff = np.zeros((self._width, self._height), dtype=np.uint8)
 
-        imgbuff = np.zeros((width, height), dtype=np.uint8)
-
-        for x in range(0, width):
-            for y in range(0, height):
-                fit = self._check_fit(x, y, self._binary_image, kernel)
+        for x in range(0, self._width):
+            for y in range(0, self._height):
+                neigbhood = self._get_neigbhood(x, y, kernel)
+                hit_count = self._hit_count(neigbhood)
 
                 if erode:
                     # Is Fit
-                    if fit == 1:
+                    if hit_count == kernel_count:
                         imgbuff[x,y] = 0
-                    # Is Hit
-                    elif fit == 0:
-                        imgbuff[x,y] = 255
-                    # Is Miss
-                    elif fit == -1:
+                    else:
                         imgbuff[x,y] = 255
                 else:
-                    # Is Fit
-                    if fit == 1:
+                    # Is Fit or Hit
+                    if hit_count > 0:
                         imgbuff[x,y] = 0
-                    # Is Hit
-                    elif fit == 0:
-                        imgbuff[x,y] = 0
-                    # Is Miss
-                    elif fit == -1:
+                    else:
                         imgbuff[x,y] = 255
         
         self._modified_image = imgbuff.copy()
 
-    def _check_fit(self, x, y, image, kernel):
-
-        image_w,image_h = np.shape(image)
-        kernel_w,kernel_h = np.shape(kernel)
+    def _get_neigbhood(self, x, y, kernel):
+        kernel_w, kernel_h = np.shape(kernel)
 
         # Translating x,y
-        new_x = x - ceil(kernel_w / 2)
-        new_y = y - ceil(kernel_h / 2)
+        new_x = x - floor(kernel_w / 2)
+        new_y = y - floor(kernel_h / 2)
 
-        has_miss = False
-        has_hit = False
+        neigbhoods = []
         for i in range(0, kernel_w):
             for j in range(0, kernel_h):
-                img_x = new_x + i
-                img_y = new_y + j
-                if img_x < 0 or img_x > image_w or img_y < 0 or img_y > image_h:
-                    has_miss = True
-                elif kernel[i][j] == 1:
-                    if image[img_x, img_y] == 0:
-                        has_hit = True
-                    else:
-                        has_miss = True
+                rel_x = new_x + i
+                rel_y = new_y + j 
+                if inRange(rel_x, 0, self._width) and inRange(rel_y, 0, self._height):
+                    if kernel[i][j] != 0:
+                        neigbhoods.append((rel_x, rel_y))
 
-                if has_miss and has_hit:
-                    return 0 # RETURNING HIT
+        return neigbhoods
 
-        if has_hit == False:
-            return -1 # RETURNING MISS
-        elif has_miss == False:
-            return 1 # RETURNING FIT
+    def _hit_count(self, neigbhood):
+        count = 0
+        for p in neigbhood:
+            if (self._binary_image[p] == 0):
+                count += 1
+        return count
 
     def _calculate_histogram(self, image):
-        width,height = np.shape(image)
         hist = np.zeros(256, dtype=np.uint8)
-        for i in range(0, width):
-            for j in range(0, height):
+        for i in range(0, self._width):
+            for j in range(0, self._height):
                 col = image[i, j]
                 hist[col] = hist[col] + 1
         
         return hist
+    
+
+def inRange(value, _min, _max):
+    return value >= _min and value < _max
