@@ -59,10 +59,18 @@ class ImageProcessor():
     def segmentate(self, kernel):
         mask = np.zeros((self._width, self._height), dtype=np.uint8)
         groups = []
-        # for i in range(0, self._width):
-        #     for j in range(0, self._height):
-        #         neigbhood = self._get_neigbhood(i, j, mask)
-
+        for i in range(0, self._width):
+            for j in range(0, self._height):
+                mask[i,j] = 1
+                neigbhood = self._get_neigbhood(i, j, kernel, mask)
+                current_group = []
+                while len(neigbhood) > 0:
+                    (curr_x, curr_y) = neigbhood.pop()
+                    mask[curr_x,curr_y] = 1
+                    if self._binary_image[curr_x, curr_y] == 0:
+                        current_group.append((curr_x, curr_y))
+                        neigbhood += self._get_neigbhood(curr_x, curr_y, kernel, mask)
+                groups.append(current_group)
         print (groups)
                         
     def _morf_image(self, erode, kernel):
@@ -99,7 +107,7 @@ class ImageProcessor():
         
         self._modified_image = imgbuff.copy()
 
-    def _get_neigbhood(self, x, y, kernel):
+    def _get_neigbhood(self, x, y, kernel, mask=None):
         kernel_w, kernel_h = np.shape(kernel)
 
         # Translating x,y
@@ -113,7 +121,8 @@ class ImageProcessor():
                 rel_y = new_y + j 
                 if inRange(rel_x, 0, self._width) and inRange(rel_y, 0, self._height):
                     if kernel[i][j] != 0:
-                        neigbhoods.append((rel_x, rel_y))
+                        if mask is not None and mask[i,j]==0: 
+                            neigbhoods.append((rel_x, rel_y))
 
         return neigbhoods
 

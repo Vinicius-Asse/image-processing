@@ -12,7 +12,7 @@ def main():
 
     processor = ImageProcessor(image, 175)
     processor.dilate_image(kernel)
-    #processor.segmentate()
+    processor.segmentate(kernel)
     processor.plot_image()
 
 if __name__ == "__main__":
