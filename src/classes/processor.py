@@ -8,10 +8,11 @@ from math import ceil, floor
 class ImageProcessor():
 
     def __init__(self, image, threshold):
-        if (image is None): raise Exception("Image not Found")
+        if image is None: 
+            raise Exception("Image not Found")
 
         ret, image_binary = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
-        width,height = np.shape(image)
+        width, height = np.shape(image)
 
         # Private Variables
         self._image = image
@@ -19,6 +20,7 @@ class ImageProcessor():
         self._height = height
         self._binary_image = image_binary
         self._modified_image = image_binary
+        self._groups = []
 
     def erode_image(self, kernel):
         self._morf_image(True, kernel)
@@ -45,14 +47,15 @@ class ImageProcessor():
         ax4.set_title('Histogram')
         ax4.plot(self._calculate_histogram(self._binary_image))
 
-        # Plotando imagem modificada
-        ax5.set_title('Modified Image')
-        img_plot = cv2.cvtColor(self._modified_image, cv2.COLOR_BGR2RGB)
+        # Plotando results
+        ax5.set_title('Result')
+        img_plot = cv2.cvtColor(self._image, cv2.COLOR_BGR2RGB)
+        for g in self._groups: cv2.rectangle(img_plot, g[0], g[1], (0, 255, 0), 1)
         ax5.imshow(img_plot, 'gray')
         ax5.axis(False)
 
         ax6.set_title('Histogram')
-        ax6.plot(self._calculate_histogram(self._modified_image))
+        ax6.plot(self._calculate_histogram(self._image))
 
         plt.show()
 
@@ -61,17 +64,30 @@ class ImageProcessor():
         groups = []
         for i in range(0, self._width):
             for j in range(0, self._height):
-                mask[i,j] = 1
-                neigbhood = self._get_neigbhood(i, j, kernel, mask)
-                current_group = []
-                while len(neigbhood) > 0:
-                    (curr_x, curr_y) = neigbhood.pop()
-                    mask[curr_x,curr_y] = 1
-                    if self._binary_image[curr_x, curr_y] == 0:
-                        current_group.append((curr_x, curr_y))
-                        neigbhood += self._get_neigbhood(curr_x, curr_y, kernel, mask)
-                groups.append(current_group)
-        print (groups)
+                if mask[i, j] == 0 and self._modified_image[i, j] == 0:
+                    mask[i, j] = 1
+                    neigbhood = self._get_neigbhood(i, j, kernel, include_itself=False)
+                    current_group = ((j, i), (j, i))
+                    while len(neigbhood) > 0:
+                        (curr_x, curr_y) = neigbhood.pop()
+                        if mask[curr_x, curr_y] == 0:
+                            mask[curr_x, curr_y] = 1
+                            x1 = current_group[0][1]
+                            y1 = current_group[0][0]
+                            x2 = current_group[1][1]
+                            y2 = current_group[1][0]
+
+                            x1 = min(x1, curr_x)
+                            y1 = min(y1, curr_y)
+                            x2 = max(x2, curr_x)
+                            y2 = max(y2, curr_y)
+
+                            current_group = ((y1, x1), (y2, x2))
+                            neigbhood += self._get_neigbhood(curr_x, curr_y, kernel, include_itself=False)
+                        
+                    groups.append(current_group)
+
+        self._groups = groups
                         
     def _morf_image(self, erode, kernel):
         kernel_w,kernel_h = np.shape(kernel)
@@ -90,7 +106,7 @@ class ImageProcessor():
         for x in range(0, self._width):
             for y in range(0, self._height):
                 neigbhood = self._get_neigbhood(x, y, kernel)
-                hit_count = self._hit_count(neigbhood)
+                hit_count = len(neigbhood)
 
                 if erode:
                     # Is Fit
@@ -107,7 +123,7 @@ class ImageProcessor():
         
         self._modified_image = imgbuff.copy()
 
-    def _get_neigbhood(self, x, y, kernel, mask=None):
+    def _get_neigbhood(self, x, y, kernel, include_itself=True):
         kernel_w, kernel_h = np.shape(kernel)
 
         # Translating x,y
@@ -120,18 +136,11 @@ class ImageProcessor():
                 rel_x = new_x + i
                 rel_y = new_y + j 
                 if inRange(rel_x, 0, self._width) and inRange(rel_y, 0, self._height):
-                    if kernel[i][j] != 0:
-                        if mask is not None and mask[i,j]==0: 
+                    if kernel[i][j] != 0 and self._modified_image[rel_x, rel_y] == 0:
+                        if include_itself or (x != rel_x or y != rel_y):
                             neigbhoods.append((rel_x, rel_y))
 
         return neigbhoods
-
-    def _hit_count(self, neigbhood):
-        count = 0
-        for p in neigbhood:
-            if (self._binary_image[p] == 0):
-                count += 1
-        return count
 
     def _calculate_histogram(self, image):
         hist = np.zeros(256, dtype=np.uint8)
